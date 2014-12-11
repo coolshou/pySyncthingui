@@ -18,6 +18,14 @@ wget -O - https://raw.githubusercontent.com/juancarlospaco/syncthingui/master/sy
 
 # Install permanently on the system:
 
+- Install Syncthing:
+```
+sudo add-apt-repository ppa:ytvwld/syncthing
+sudo apt-get update
+sudo apt-get install syncthing
+```
+
+- Install SyncthinGUI:
 ```
 sudo apt-get install python3-pyqt5  # OR  sudo yum install python3-qt5  OR  sudo pacman -S python-pyqt5
 sudo wget -O /usr/bin/syncthingui https://raw.githubusercontent.com/juancarlospaco/syncthingui/master/syncthingui.py
@@ -41,6 +49,7 @@ echo cfq | sudo tee /sys/block/sda/queue/scheduler
 
 - [Python 3.x](https://www.python.org "Python Homepage")
 - [PyQt 5.x](http://www.riverbankcomputing.co.uk/software/pyqt/download5 "PyQt5 Homepage")
+- [Syncthing](https://ind.ie/pulse "Syncthing Homepage") *(On Linux install it from PPA!)*
 
 
 Donate, Charityware :
