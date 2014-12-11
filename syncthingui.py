@@ -4,9 +4,10 @@
 
 
 # metadata
-""" SyncthinGUI """
+"""SyncthinGUI."""
+__package__ = "syncthingui"
 __version__ = ' 0.0.1 '
-__license__ = ' GPLv3 LGPLv3 '
+__license__ = ' GPLv3+ LGPLv3+ '
 __author__ = ' juancarlos '
 __email__ = ' juancarlospaco@gmail.com '
 __url__ = 'https://github.com/juancarlospaco/syncthingui#syncthingui'
@@ -15,20 +16,21 @@ __source__ = ('https://raw.githubusercontent.com/juancarlospaco/'
 
 
 # imports
+import os
 import sys
+from ctypes import byref, cdll, create_string_buffer
 from getopt import getopt
-from os import nice
 from subprocess import call, getoutput
-from webbrowser import open_new_tab
 from urllib import request
+from webbrowser import open_new_tab
 
-from PyQt5.QtCore import Qt, QTextStream, QUrl, QProcess
+from PyQt5.QtCore import QProcess, Qt, QTextStream, QUrl
 from PyQt5.QtGui import QIcon
 from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtWebKitWidgets import QWebView
-from PyQt5.QtWidgets import (QApplication, QInputDialog, QMainWindow, QCheckBox,
-                             QMessageBox, QPlainTextEdit, QShortcut,
-                             QSystemTrayIcon, QMenu)
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
+                             QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
+                             QShortcut, QSystemTrayIcon)
 
 
 URL, SYNCTHING = "http://127.0.0.1:8080", "syncthing"
@@ -39,13 +41,14 @@ HELP_URL_3 = "https://github.com/syncthing/syncthing/issues"
 HELP_URL_4 = "https://github.com/syncthing/syncthing"
 SHORTCUTS = """<b>Quit = CTRL + Q<br>Zoom Up = CTRL + +<br>
                Zoom Down = CTRL + -<br>Zoom Reset = CTRL + 0"""
-HELPMSG = """<h3>SyncthinGUI</h3>Python3 Qt5 GUI for Syncthing,GPLv3+LGPLv3+<hr>
-<i>KISS DRY YAGNI SingleFile Async CrossDesktop CrossDistro SelfUpdating</i><br>
+HELPMSG = """<h3>SyncthinGUI</h3>Python3 Qt5 GUI for Syncthing,GPLv3+LGPLv3<hr>
+<i>KISS DRY SingleFile Async CrossDesktop CrossDistro SelfUpdating</i><br>
 <br>DEV: <a href=https://github.com/juancarlospaco>JuanCarlos</a><br>
 """ + getoutput(SYNCTHING + ' --version')
 BASE_JS = """var custom_css = document.createElement("style");
-custom_css.textContent = '*{font-family:Oxygen}body{background-color:lightgray}\
-.navbar-fixed-bottom{display:none}';
+custom_css.textContent = '*{font-family:Oxygen}';
+custom_css.textContent += 'body{background-color:lightgray}';
+custom_css.textContent += '.navbar-fixed-bottom{display:none}';
 document.querySelector("head").appendChild(custom_css);"""
 
 
@@ -53,7 +56,11 @@ document.querySelector("head").appendChild(custom_css);"""
 
 
 class MainWindow(QMainWindow):
+
+    """Main window class."""
+
     def __init__(self):
+        """Init class."""
         super(MainWindow, self).__init__()
         self.statusBar().showMessage(getoutput(SYNCTHING + ' --version'))
         self.setWindowTitle(__doc__.strip().capitalize())
@@ -77,10 +84,12 @@ class MainWindow(QMainWindow):
         syncMenu.addAction("Stop Syncronization", lambda: self.process.kill())
         syncMenu.addAction("Start Syncronization", lambda: self.run())
         viewMenu = self.menuBar().addMenu("View")
-        viewMenu.addAction("Zoom In", lambda:
-                           self.view.setZoomFactor(self.view.zoomFactor() + .2))
-        viewMenu.addAction("Zoom Out", lambda:
-                           self.view.setZoomFactor(self.view.zoomFactor() - .2))
+        viewMenu.addAction(
+            "Zoom In",
+            lambda: self.view.setZoomFactor(self.view.zoomFactor() + .2))
+        viewMenu.addAction(
+            "Zoom Out",
+            lambda: self.view.setZoomFactor(self.view.zoomFactor() - .2))
         viewMenu.addAction(
             "Zoom To...", lambda: self.view.setZoomFactor(QInputDialog.getInt(
                 self, __doc__, "<b>Zoom factor ?:", 1, 1, 9)[0]))
@@ -130,11 +139,11 @@ class MainWindow(QMainWindow):
         helpMenu.addAction("View GitHub Repo", lambda: open_new_tab(__url__))
         if not sys.platform.startswith("win"):
             helpMenu.addAction("Show Source Code", lambda: call(
-                ('xdg-open ' if sys.platform.startswith("linux") else 'open ') +
-                __file__, shell=True))
+                ('xdg-open ' if sys.platform.startswith("linux") else 'open ')
+                + __file__, shell=True))
         helpMenu.addSeparator()
         helpMenu.addAction("Check Updates", lambda: self.check_for_updates())
-         # process
+        # process
         self.process = QProcess()
         self.process.error.connect(self._process_failed)
         # backend options
@@ -173,8 +182,11 @@ class MainWindow(QMainWindow):
         self.run()
 
     def show_gui(self):
-        """Helper method to show UI, this should not be needed, but I discovered
-        loading Web UI increase >250Mb RAM!,go blame AngularJS/JQuery2 not me"""
+        """
+        Helper method to show UI, this should not be needed, but I discovered.
+
+        loading WebUI increase >250Mb RAM!,go blame AngularJS/JQuery2 not me.
+        """
         print(" INFO: Loading Web UI increases >250Mb RAM!.")
         self.showNormal()
         self.view.load(QUrl(URL))
@@ -193,12 +205,12 @@ class MainWindow(QMainWindow):
 
     def _process_failed(self):
         """Read and return errors."""
-        self.statusBar().showMessage("ERROR:Fail: Syncthing blow up in pieces!")
-        print("ERROR: Fail: Syncthing blow up in pieces! Wheres your God now ?")
+        self.statusBar().showMessage("ERROR:Fail:Syncthing blow up in pieces!")
+        print("ERROR:Fail:Syncthing blow up in pieces! Wheres your God now ?")
         return str(self.process.readAllStandardError()).strip().lower()
 
     def center(self):
-        """Center the Window on the Current Screen,with Multi-Monitor support"""
+        """Center Window on the Current Screen,with Multi-Monitor support."""
         window_geometry = self.frameGeometry()
         mousepointer_position = QApplication.desktop().cursor().pos()
         screen = QApplication.desktop().screenNumber(mousepointer_position)
@@ -207,7 +219,7 @@ class MainWindow(QMainWindow):
         self.move(window_geometry.topLeft())
 
     def move_to_mouse_position(self):
-        """Center the Window on the Current Mouse position"""
+        """Center the Window on the Current Mouse position."""
         window_geometry = self.frameGeometry()
         window_geometry.moveCenter(QApplication.desktop().cursor().pos())
         self.move(window_geometry.topLeft())
@@ -229,6 +241,7 @@ class MainWindow(QMainWindow):
         reply.deleteLater()
 
     def finishLoading(self):
+        """Finished loading content."""
         self.setWindowTitle(self.view.title()[:99])
         self.view.settings().clearMemoryCaches()
         self.view.settings().clearIconDatabase()
@@ -239,13 +252,13 @@ class MainWindow(QMainWindow):
         this_version = str(open(__file__).read())
         last_version = str(request.urlopen(__source__).read().decode("utf8"))
         if this_version != last_version:
-            m = "Theres new Version available!<br>Download update from the web!"
+            m = "Theres new Version available!<br>Download update from the web"
         else:
             m = "No new updates!<br>You have the lastest version of" + __doc__
         return QMessageBox.information(self, __doc__.title(), "<b>" + m)
 
     def closeEvent(self, event):
-        ' Ask to Quit '
+        """Ask to Quit."""
         the_conditional_is_true = QMessageBox.question(
             self, __doc__.title(), 'Quit ?.', QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No) == QMessageBox.Yes
@@ -256,11 +269,16 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    ' Main Loop '
+    """Main Loop."""
+    APPNAME = str(__package__ or __doc__)[:99].lower().strip().replace(" ", "")
     try:
-        nice(19)
-    except Exception as error:
-        print(error)
+        os.nice(19)  # smooth cpu priority
+        libc = cdll.LoadLibrary('libc.so.6')  # set process name
+        buff = create_string_buffer(len(APPNAME) + 1)
+        buff.value = bytes(APPNAME.encode("utf-8"))
+        libc.prctl(15, byref(buff), 0, 0, 0)
+    except Exception as reason:
+        print(reason)
     app = QApplication(sys.argv)
     app.setApplicationName(__doc__.strip().lower())
     app.setOrganizationName(__doc__.strip().lower())
@@ -281,7 +299,7 @@ def main():
         elif o in ('-v', '--version'):
             print(__version__)
             return sys.exit(1)
-    # web.show()  # comment out to hide / show main window, normally dont needed
+    # web.show()  # comment out to hide/show main window, normally dont needed
     sys.exit(app.exec_())
 
 
