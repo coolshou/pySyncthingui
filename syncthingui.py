@@ -27,13 +27,14 @@ from webbrowser import open_new_tab
 from PyQt5.QtCore import QProcess, Qt, QTextStream, QUrl
 from PyQt5.QtGui import QIcon
 from PyQt5.QtNetwork import QNetworkRequest
+#ubuntu require: python3-pyqt5.qtwebkit
 from PyQt5.QtWebKitWidgets import QWebView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
                              QShortcut, QSystemTrayIcon)
 
 
-URL, SYNCTHING = "http://127.0.0.1:8080", "syncthing"
+URL, SYNCTHING = "http://127.0.0.1:8384", "syncthing"
 HELP_URL_0 = "http://discourse.syncthing.net"
 HELP_URL_1 = "https://github.com/syncthing/syncthing/releases"
 HELP_URL_2 = "http://discourse.syncthing.net/category/documentation"
@@ -64,7 +65,7 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         self.statusBar().showMessage(getoutput(SYNCTHING + ' --version'))
         self.setWindowTitle(__doc__.strip().capitalize())
-        self.setMinimumSize(640, 480)
+        self.setMinimumSize(900, 600)
         self.setMaximumSize(1280, 1024)
         self.resize(self.minimumSize())
         self.setWindowIcon(QIcon.fromTheme("text-x-python"))
@@ -164,7 +165,12 @@ class MainWindow(QMainWindow):
         self.toolbar.addWidget(self.ionice)
         self.setCentralWidget(self.view)
         # Tray Icon
-        tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
+        #tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
+        icon = QIcon("syncthingui.png")
+        self.setWindowIcon(icon)
+        #icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        #tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
+        tray = QSystemTrayIcon(icon, self)
         tray.setToolTip(__doc__.strip().capitalize())
         traymenu = QMenu(self)
         traymenu.addAction(__doc__).setDisabled(True)
