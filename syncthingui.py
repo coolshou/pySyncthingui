@@ -2,19 +2,6 @@
 # -*- coding: utf-8 -*-
 # PEP8:OK, LINT:OK, PY3:OK
 
-
-# metadata
-"""SyncthinGUI."""
-__package__ = "syncthingui"
-__version__ = ' 0.0.1 '
-__license__ = ' GPLv3+ LGPLv3+ '
-__author__ = ' juancarlos '
-__email__ = ' juancarlospaco@gmail.com '
-__url__ = 'https://github.com/juancarlospaco/syncthingui#syncthingui'
-__source__ = ('https://raw.githubusercontent.com/juancarlospaco/'
-              'syncthingui/master/syncthingui.py')
-
-
 # imports
 import os
 import sys
@@ -27,24 +14,37 @@ from webbrowser import open_new_tab
 from PyQt5.QtCore import QProcess, Qt, QTextStream, QUrl
 from PyQt5.QtGui import QIcon
 from PyQt5.QtNetwork import QNetworkRequest
-#ubuntu require: python3-pyqt5.qtwebkit
+# ubuntu require: python3-pyqt5.qtwebkit
 from PyQt5.QtWebKitWidgets import QWebView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
                              QShortcut, QSystemTrayIcon)
 
+# metadata
+"""SyncthinGUI."""
+__package__ = "syncthingui"
+__version__ = ' 0.0.2 '
+__license__ = ' GPLv3+ LGPLv3+ '
+__author__ = 'coolshou '
+__author_org__ = ' juancarlos '
+__email__ = ' juancarlospaco@gmail.com '
+__url__ = 'https://github.com/coolshou/syncthingui#syncthingui'
+__source__ = ('https://github.com/coolshou/syncthingui/releases')
+
 
 URL, SYNCTHING = "http://127.0.0.1:8384", "syncthing"
-HELP_URL_0 = "http://discourse.syncthing.net"
+HELP_URL_0 = "http://forum.syncthing.net"
 HELP_URL_1 = "https://github.com/syncthing/syncthing/releases"
-HELP_URL_2 = "http://discourse.syncthing.net/category/documentation"
+HELP_URL_2 = "http://docs.syncthing.net"
 HELP_URL_3 = "https://github.com/syncthing/syncthing/issues"
 HELP_URL_4 = "https://github.com/syncthing/syncthing"
 SHORTCUTS = """<b>Quit = CTRL + Q<br>Zoom Up = CTRL + +<br>
                Zoom Down = CTRL + -<br>Zoom Reset = CTRL + 0"""
 HELPMSG = """<h3>SyncthinGUI</h3>Python3 Qt5 GUI for Syncthing,GPLv3+LGPLv3<hr>
-<i>KISS DRY SingleFile Async CrossDesktop CrossDistro SelfUpdating</i><br>
-<br>DEV: <a href=https://github.com/juancarlospaco>JuanCarlos</a><br>
+<i>KISS DRY SingleFile Async CrossDesktop CrossDistro SelfUpdating</i><br><br>
+DEV: <a href=https://github.com/coolshou/syncthingui>Coolshou</a><br>
+Original DEV: <a href=https://github.com/juancarlospaco>JuanCarlos</a><br>
+<br>
 """ + getoutput(SYNCTHING + ' --version')
 BASE_JS = """var custom_css = document.createElement("style");
 custom_css.textContent = '*{font-family:Oxygen}';
@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
         helpMenu.addAction("About Qt 5", lambda: QMessageBox.aboutQt(self))
         helpMenu.addAction("About Python 3",
                            lambda: open_new_tab('https://www.python.org'))
-        helpMenu.addAction("About" + __doc__,
+        helpMenu.addAction("About " + __doc__,
                            lambda: QMessageBox.about(self, __doc__, HELPMSG))
         helpMenu.addSeparator()
         helpMenu.addAction("Keyboard Shortcuts", lambda:
@@ -165,11 +165,11 @@ class MainWindow(QMainWindow):
         self.toolbar.addWidget(self.ionice)
         self.setCentralWidget(self.view)
         # Tray Icon
-        #tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
+        # tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
         icon = QIcon("syncthingui.png")
         self.setWindowIcon(icon)
-        #icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        #tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
+        # icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        # tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
         tray = QSystemTrayIcon(icon, self)
         tray.setToolTip(__doc__.strip().capitalize())
         traymenu = QMenu(self)
@@ -255,6 +255,8 @@ class MainWindow(QMainWindow):
 
     def check_for_updates(self):
         """Method to check for updates from Git repo versus this version."""
+        print("TODO: https://github.com/coolshou/syncthingui/releases")
+        '''
         this_version = str(open(__file__).read())
         last_version = str(request.urlopen(__source__).read().decode("utf8"))
         if this_version != last_version:
@@ -262,7 +264,7 @@ class MainWindow(QMainWindow):
         else:
             m = "No new updates!<br>You have the lastest version of" + __doc__
         return QMessageBox.information(self, __doc__.title(), "<b>" + m)
-
+        '''
     def closeEvent(self, event):
         """Ask to Quit."""
         the_conditional_is_true = QMessageBox.question(
