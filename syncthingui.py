@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # PEP8:OK, LINT:OK, PY3:OK
+# metadata
+"""SyncthinGUI."""
 
 # imports
 import os
@@ -21,7 +23,6 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QShortcut, QSystemTrayIcon)
 
 # metadata
-"""SyncthinGUI."""
 __package__ = "syncthingui"
 __version__ = ' 0.0.2 '
 __license__ = ' GPLv3+ LGPLv3+ '
@@ -248,6 +249,7 @@ class MainWindow(QMainWindow):
 
     def finishLoading(self):
         """Finished loading content."""
+        print(self.view.title()[:99])
         self.setWindowTitle(self.view.title()[:99])
         self.view.settings().clearMemoryCaches()
         self.view.settings().clearIconDatabase()
