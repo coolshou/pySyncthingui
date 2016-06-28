@@ -10,11 +10,6 @@ SyncthinGUI Python3 Qt5 GUI for Syncthing !
 ![screenshot](https://raw.githubusercontent.com/juancarlospaco/syncthingui/master/syncthingui.jpg)
 
 
-# Try it !:
-
-```
-wget -O - https://raw.githubusercontent.com/juancarlospaco/syncthingui/master/syncthingui.py | python3
-```
 
 # Install permanently on the system:
 
@@ -28,8 +23,9 @@ sudo apt-get install syncthing
 - Install SyncthinGUI:
 ```
 sudo apt-get install python3-pyqt5  # OR  sudo yum install python3-qt5  OR  sudo pacman -S python-pyqt5
-sudo wget -O /usr/bin/syncthingui https://raw.githubusercontent.com/juancarlospaco/syncthingui/master/syncthingui.py
-sudo chmod +x /usr/bin/syncthingui
+git clone https://github.com/coolshou/syncthingui.git
+cd syncthingui
+sudo chmod +x syncthingui
 syncthingui
 ```
 
