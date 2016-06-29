@@ -7,6 +7,7 @@
 # imports
 import os
 import sys
+from datetime import datetime
 from ctypes import byref, cdll, create_string_buffer
 from getopt import getopt
 from subprocess import call, getoutput
@@ -47,6 +48,7 @@ DEV: <a href=https://github.com/coolshou/syncthingui>Coolshou</a><br>
 Original DEV: <a href=https://github.com/juancarlospaco>JuanCarlos</a><br>
 <br>
 """ + getoutput(SYNCTHING + ' --version')
+
 BASE_JS = """var custom_css = document.createElement("style");
 custom_css.textContent = '*{font-family:Oxygen}';
 custom_css.textContent += 'body{background-color:lightgray}';
@@ -261,13 +263,15 @@ class MainWindow(QMainWindow):
     @pyqtSlot(bool)
     def finishLoading(self, finished):
         """Finished loading content."""
-        # print("finishLoading %s" % finished)
         self.view.settings().clearMemoryCaches()
         self.view.settings().clearIconDatabase()
-        self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
-        # print("finishLoading view title %s" % self.view.title()[:99])
-        # self.setWindowTitle(self.view.title()[:99])
 
+        # print("finishLoading %s" % datetime.strftime(datetime.now(),
+        #                                             '%Y-%m-%d %H:%M:%S'))
+        # TODO: following line need 6 sec to finish!!
+        #self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
+        # print("finishLoading %s" % datetime.strftime(datetime.now(),
+        #                                             '%Y-%m-%d %H:%M:%S'))
         self.progressBar.hide()
 
     @pyqtSlot(int)
