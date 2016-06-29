@@ -31,7 +31,7 @@ __author__ = 'coolshou '
 __author_org__ = ' juancarlos '
 __email__ = ' juancarlospaco@gmail.com '
 __url__ = 'https://github.com/coolshou/syncthingui#syncthingui'
-__source__ = ('https://github.com/coolshou/syncthingui/releases')
+__source__ = ('https://github.com/coolshou/syncthingui/releases/latest')
 
 
 URL, SYNCTHING = "http://127.0.0.1:8384", "syncthing"
@@ -174,7 +174,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.view)
         # Tray Icon
         # tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
-        icon = QIcon("syncthingui.png")
+        #icon = QIcon("syncthingui.png")
+        icon = QIcon("syncthingui.svg")
         self.setWindowIcon(icon)
         # icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         # tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
@@ -199,12 +200,9 @@ class MainWindow(QMainWindow):
     def show_gui(self):
         """
         Helper method to show UI, this should not be needed, but I discovered.
-
-        loading WebUI increase >250Mb RAM!,go blame AngularJS/JQuery2 not me.
         """
-        print(" INFO: Loading Web UI increases >250Mb RAM!.")
         self.showNormal()
-        print(" INFO: Loading Web UI require some times!.")
+        # webview require 70Mb to show webpage
         self.view.load(QUrl(URL))
 
     def run(self):
@@ -269,6 +267,7 @@ class MainWindow(QMainWindow):
         # print("finishLoading %s" % datetime.strftime(datetime.now(),
         #                                             '%Y-%m-%d %H:%M:%S'))
         # TODO: following line need 6 sec to finish!!
+        # TODO: (" INFO: Loading Web UI increases >250Mb RAM!.")
         #self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
         # print("finishLoading %s" % datetime.strftime(datetime.now(),
         #                                             '%Y-%m-%d %H:%M:%S'))
@@ -289,24 +288,33 @@ class MainWindow(QMainWindow):
 
     def check_for_updates(self):
         """Method to check for updates from Git repo versus this version."""
-        print("TODO: https://github.com/coolshou/syncthingui/releases")
+        #print("TODO: https://github.com/coolshou/syncthingui/releases/latest")
+
+        print("__version__: %s" % __version__)
         '''
         this_version = str(open(__file__).read())
+        print("this_version: %s" % this_version)
         last_version = str(request.urlopen(__source__).read().decode("utf8"))
+        print("last_version: %s" % last_version)
+
+        TODO: previous use file compare, when diff then there is new file!!
         if this_version != last_version:
             m = "Theres new Version available!<br>Download update from the web"
         else:
             m = "No new updates!<br>You have the lastest version of" + __doc__
         return QMessageBox.information(self, __doc__.title(), "<b>" + m)
-        '''
+'''
     def closeEvent(self, event):
         """Ask to Quit."""
         if self.tray.isVisible():
-            self.tray.showMessage("Info",
-                                  "The program will keep running in the system"
-                                  "tray. To terminate the program, choose "
-                                  "<b>Quit</b> in the context menu of the "
-                                  "system tray entry.")
+            if self.tray.supportsMessages():
+                self.tray.showMessage("Info",
+                                      "The program will keep running in the "
+                                      "system tray. To terminate the program,"
+                                      " choose <b>Quit</b> in the context "
+                                      "menu of the system tray entry.")
+            else:
+                print(" System tray not supports balloon messages ")
             self.hide()
             event.ignore()
 
