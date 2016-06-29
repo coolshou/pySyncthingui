@@ -13,14 +13,14 @@ from subprocess import call, getoutput
 from urllib import request
 from webbrowser import open_new_tab
 
-from PyQt5.QtCore import QProcess, Qt, QTextStream, QUrl
+from PyQt5.QtCore import QProcess, Qt, QTextStream, QUrl, pyqtSlot
 from PyQt5.QtGui import QIcon
 from PyQt5.QtNetwork import QNetworkRequest
 # ubuntu require: python3-pyqt5.qtwebkit
 from PyQt5.QtWebKitWidgets import QWebView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
-                             QShortcut, QSystemTrayIcon)
+                             QShortcut, QSystemTrayIcon, QProgressBar)
 
 # metadata
 __package__ = "syncthingui"
@@ -64,7 +64,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         """Init class."""
         super(MainWindow, self).__init__()
+        self.progressBar = QProgressBar()
         self.statusBar().showMessage(getoutput(SYNCTHING + ' --version'))
+        self.statusBar().addPermanentWidget(self.progressBar)
         self.setWindowTitle(__doc__.strip().capitalize())
         self.setMinimumSize(900, 600)
         self.setMaximumSize(1280, 1024)
@@ -72,7 +74,10 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon.fromTheme("text-x-python"))
         self.center()
         self.view = QWebView(self)
+        self.view.loadStarted.connect(self.startLoading)
         self.view.loadFinished.connect(self.finishLoading)
+        self.view.loadProgress.connect(self.loading)
+        self.view.titleChanged.connect(self.set_Title)
         self.view.page().linkHovered.connect(
             lambda link_txt: self.statusBar().showMessage(link_txt[:99], 3000))
         QShortcut("Ctrl++", self, activated=lambda:
@@ -197,6 +202,7 @@ class MainWindow(QMainWindow):
         """
         print(" INFO: Loading Web UI increases >250Mb RAM!.")
         self.showNormal()
+        print(" INFO: Loading Web UI require some times!.")
         self.view.load(QUrl(URL))
 
     def run(self):
@@ -248,13 +254,34 @@ class MainWindow(QMainWindow):
         self.textEdit.show()
         reply.deleteLater()
 
-    def finishLoading(self):
+    @pyqtSlot()
+    def startLoading(self):
+        self.progressBar.show()
+
+    @pyqtSlot(bool)
+    def finishLoading(self, finished):
         """Finished loading content."""
+        # print("finishLoading %s" % finished)
         self.view.settings().clearMemoryCaches()
         self.view.settings().clearIconDatabase()
         self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
-        print(self.view.title()[:99])
-        self.setWindowTitle(self.view.title()[:99])
+        # print("finishLoading view title %s" % self.view.title()[:99])
+        # self.setWindowTitle(self.view.title()[:99])
+
+        self.progressBar.hide()
+
+    @pyqtSlot(int)
+    def loading(self, idx):
+        """loading content"""
+        # print("loading %s" % idx)
+        self.progressBar.setValue(idx)
+
+    @pyqtSlot(str)
+    def set_Title(self, title):
+        """set title when webview's title change"""
+        # print("title: %s" % title)
+        if len(title.strip()) > 0:
+            self.setWindowTitle(self.view.title()[:99])
 
     def check_for_updates(self):
         """Method to check for updates from Git repo versus this version."""
@@ -280,8 +307,12 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def appExit(self):
+        # TODO: do we need to show UI when doing close?
+        # self.show_gui()
+
         the_conditional_is_true = QMessageBox.question(
-            self, __doc__.title(), 'Quit ?.', QMessageBox.Yes | QMessageBox.No,
+            self, __doc__.title(), 'Quit %s?' % __doc__,
+            QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No) == QMessageBox.Yes
         if the_conditional_is_true:
             QApplication.instance().quit
