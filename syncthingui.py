@@ -171,8 +171,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(icon)
         # icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         # tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
-        tray = QSystemTrayIcon(icon, self)
-        tray.setToolTip(__doc__.strip().capitalize())
+        self.tray = QSystemTrayIcon(icon, self)
+        self.tray.setToolTip(__doc__.strip().capitalize())
         traymenu = QMenu(self)
         traymenu.addAction(__doc__).setDisabled(True)
         traymenu.addSeparator()
@@ -183,9 +183,10 @@ class MainWindow(QMainWindow):
         traymenu.addAction("Hide", lambda: self.hide())
         traymenu.addSeparator()
         traymenu.addAction("Open Web", lambda: open_new_tab(URL))
-        traymenu.addAction("Quit All", lambda: self.close())
-        tray.setContextMenu(traymenu)
-        tray.show()
+        # traymenu.addAction("Quit All", lambda: self.close())
+        traymenu.addAction("Quit All", lambda: self.appExit())
+        self.tray.setContextMenu(traymenu)
+        self.tray.show()
         self.run()
 
     def show_gui(self):
@@ -249,11 +250,11 @@ class MainWindow(QMainWindow):
 
     def finishLoading(self):
         """Finished loading content."""
-        print(self.view.title()[:99])
-        self.setWindowTitle(self.view.title()[:99])
         self.view.settings().clearMemoryCaches()
         self.view.settings().clearIconDatabase()
         self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
+        print(self.view.title()[:99])
+        self.setWindowTitle(self.view.title()[:99])
 
     def check_for_updates(self):
         """Method to check for updates from Git repo versus this version."""
@@ -269,11 +270,22 @@ class MainWindow(QMainWindow):
         '''
     def closeEvent(self, event):
         """Ask to Quit."""
+        if self.tray.isVisible():
+            self.tray.showMessage("Info",
+                                  "The program will keep running in the system"
+                                  "tray. To terminate the program, choose "
+                                  "<b>Quit</b> in the context menu of the "
+                                  "system tray entry.")
+            self.hide()
+            event.ignore()
+
+    def appExit(self):
         the_conditional_is_true = QMessageBox.question(
             self, __doc__.title(), 'Quit ?.', QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No) == QMessageBox.Yes
-        event.accept() if the_conditional_is_true else event.ignore()
-
+        if the_conditional_is_true:
+            QApplication.instance().quit
+            quit()
 
 ###############################################################################
 
