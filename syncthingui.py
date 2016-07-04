@@ -7,6 +7,7 @@
 # imports
 import os
 import sys
+import signal
 from datetime import datetime
 from ctypes import byref, cdll, create_string_buffer
 from getopt import getopt
@@ -14,14 +15,17 @@ from subprocess import call, getoutput
 from urllib import request
 from webbrowser import open_new_tab
 
-from PyQt5.QtCore import QProcess, Qt, QTextStream, QUrl, pyqtSlot
-from PyQt5.QtGui import QIcon
+# require python3-pyqt5
+from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize,
+                          QRect)
+from PyQt5.QtGui import QIcon, QTextOption
 from PyQt5.QtNetwork import QNetworkRequest
 # ubuntu require: python3-pyqt5.qtwebkit
 from PyQt5.QtWebKitWidgets import QWebView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
-                             QShortcut, QSystemTrayIcon, QProgressBar)
+                             QShortcut, QSystemTrayIcon, QProgressBar,
+                             QSplitter, QWidget, QFormLayout)
 
 # metadata
 __package__ = "syncthingui"
@@ -66,15 +70,29 @@ class MainWindow(QMainWindow):
     def __init__(self):
         """Init class."""
         super(MainWindow, self).__init__()
-        self.progressBar = QProgressBar()
+
+        self.init_gui()
+        self.init_menu()
+
+        #self.setCentralWidget(self.view)
+
+        self.init_systray()
+
+        self.run()
+
+    def init_gui(self):
+        """init gui setup"""
+        self.progressbar = QProgressBar()
         self.statusBar().showMessage(getoutput(SYNCTHING + ' --version'))
-        self.statusBar().addPermanentWidget(self.progressBar)
+        self.statusBar().addPermanentWidget(self.progressbar)
         self.setWindowTitle(__doc__.strip().capitalize())
         self.setMinimumSize(900, 600)
         self.setMaximumSize(1280, 1024)
         self.resize(self.minimumSize())
         self.setWindowIcon(QIcon.fromTheme("text-x-python"))
         self.center()
+
+        # QWebView
         self.view = QWebView(self)
         self.view.loadStarted.connect(self.startLoading)
         self.view.loadFinished.connect(self.finishLoading)
@@ -88,24 +106,83 @@ class MainWindow(QMainWindow):
                   self.view.setZoomFactor(self.view.zoomFactor() - 0.2))
         QShortcut("Ctrl+0", self, activated=lambda: self.view.setZoomFactor(1))
         QShortcut("Ctrl+q", self, activated=lambda: self.close())
-        self.menuBar().addMenu("File").addAction("Exit", lambda: self.close())
-        syncMenu = self.menuBar().addMenu("Sync")
-        syncMenu.addAction("Stop Syncronization", lambda: self.process.kill())
+
+        # TODO: syncthing console
+        self.consolewidget = QWidget(self)
+        # TODO: start at specify (w,h)
+        # self.consolewidget.resize(QSize(self.statusBar().size().width(), 100))
+        self.consolewidget.setMinimumSize(QSize(200, 100))
+        self.consolewidget.setStyleSheet("margin:0px; \
+        border:1px solid rgb(0, 0, 0); ")
+        self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
+        self.consoletextedit.setWordWrapMode(QTextOption.NoWrap)
+        self.consoletextedit.setStyleSheet("margin:0px;")
+        layout = QFormLayout()
+        layout.addRow(self.consoletextedit)
+        self.consolewidget.setLayout(layout)
+
+        self.splitter = QSplitter(Qt.Vertical)
+        self.splitter.addWidget(self.view)
+        self.splitter.addWidget(self.consolewidget)
+
+        # process
+        self.process = QProcess()
+        self.process.error.connect(self._process_failed)
+        # backend options
+        self.chrt = QCheckBox("Smooth CPU ", checked=True)
+        self.ionice = QCheckBox("Smooth HDD ", checked=True)
+        self.chrt.setToolTip("Use Smooth CPUs priority (recommended)")
+        self.ionice.setToolTip("Use Smooth HDDs priority (recommended)")
+        self.chrt.setStatusTip(self.chrt.toolTip())
+        self.ionice.setStatusTip(self.ionice.toolTip())
+        # main toolbar
+        self.toolbar = self.addToolBar("SyncthinGUI Toolbar")
+        self.toolbar.addAction(QIcon.fromTheme("media-playback-stop"),
+                               "Stop Sync", lambda: self.process.kill())
+        self.toolbar.addAction(QIcon.fromTheme("media-playback-start"),
+                               "Restart Sync", lambda: self.run())
+        self.toolbar.addSeparator()
+        self.toolbar.addWidget(self.chrt)
+        self.toolbar.addWidget(self.ionice)
+
+        # final gui setup
+        self.setCentralWidget(self.splitter)
+
+    def init_menu(self):
+        """init menu setup"""
+        # file menu
+        fileMenu = self.menuBar().addMenu("File")
+        # TODO: setting menu item
+        fileMenu.addAction("Exit", lambda: self.close())
+        # Syncthing menu
+        syncMenu = self.menuBar().addMenu("Syncthing")
         syncMenu.addAction("Start Syncronization", lambda: self.run())
+        syncMenu.addAction("Stop Syncronization", lambda: self.process.kill())
+        # TODO: restart
+        # TODO: reflash F5
+        syncMenu.addAction("Open in external browser",
+                           lambda: open_new_tab(URL))
+
+        # view menu
         viewMenu = self.menuBar().addMenu("View")
-        viewMenu.addAction(
+        # TODO: syncthing console menu
+        viewMenu.addAction("syncthing console", lambda: self.show_console)
+        #
+        zoomMenu = viewMenu.addMenu("Zoom browser")
+        zoomMenu.addAction(
             "Zoom In",
             lambda: self.view.setZoomFactor(self.view.zoomFactor() + .2))
-        viewMenu.addAction(
+        zoomMenu.addAction(
             "Zoom Out",
             lambda: self.view.setZoomFactor(self.view.zoomFactor() - .2))
-        viewMenu.addAction(
+        zoomMenu.addAction(
             "Zoom To...", lambda: self.view.setZoomFactor(QInputDialog.getInt(
                 self, __doc__, "<b>Zoom factor ?:", 1, 1, 9)[0]))
-        viewMenu.addAction("Zoom Reset", lambda: self.view.setZoomFactor(1))
+        zoomMenu.addAction("Zoom Reset", lambda: self.view.setZoomFactor(1))
         viewMenu.addSeparator()
-        viewMenu.addAction("Page Source", self.viewSource)
-        viewMenu.addAction("Open Web", lambda: open_new_tab(URL))
+        viewMenu.addAction("View Page Source", lambda: self.viewSource)
+
+        # window menu
         windowMenu = self.menuBar().addMenu("&Window")
         windowMenu.addAction("Minimize", lambda: self.showMinimized())
         windowMenu.addAction("Maximize", lambda: self.showMaximized())
@@ -130,6 +207,7 @@ class MainWindow(QMainWindow):
         windowMenu.addSeparator()
         windowMenu.addAction("Disable Resize",
                              lambda: self.setFixedSize(self.size()))
+        # help menu
         helpMenu = self.menuBar().addMenu("&Help")
         helpMenu.addAction("Support Forum", lambda: open_new_tab(HELP_URL_0))
         helpMenu.addAction("Lastest Release", lambda: open_new_tab(HELP_URL_1))
@@ -152,29 +230,13 @@ class MainWindow(QMainWindow):
                 + __file__, shell=True))
         helpMenu.addSeparator()
         helpMenu.addAction("Check Updates", lambda: self.check_for_updates())
-        # process
-        self.process = QProcess()
-        self.process.error.connect(self._process_failed)
-        # backend options
-        self.chrt = QCheckBox("Smooth CPU ", checked=True)
-        self.ionice = QCheckBox("Smooth HDD ", checked=True)
-        self.chrt.setToolTip("Use Smooth CPUs priority (recommended)")
-        self.ionice.setToolTip("Use Smooth HDDs priority (recommended)")
-        self.chrt.setStatusTip(self.chrt.toolTip())
-        self.ionice.setStatusTip(self.ionice.toolTip())
-        # main toolbar
-        self.toolbar = self.addToolBar("SyncthinGUI Toolbar")
-        self.toolbar.addAction(QIcon.fromTheme("media-playback-stop"),
-                               "Stop Sync", lambda: self.process.kill())
-        self.toolbar.addAction(QIcon.fromTheme("media-playback-start"),
-                               "Restart Sync", lambda: self.run())
-        self.toolbar.addSeparator()
-        self.toolbar.addWidget(self.chrt)
-        self.toolbar.addWidget(self.ionice)
-        self.setCentralWidget(self.view)
-        # Tray Icon
+
+    def init_systray(self):
+        """init system tray icon"""
+        # System Tray
         # tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
-        #icon = QIcon("syncthingui.png")
+        # icon = QIcon("syncthingui.png")
+        # TODO: /usr/share/icons/
         icon = QIcon("syncthingui.svg")
         self.setWindowIcon(icon)
         # icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -195,7 +257,7 @@ class MainWindow(QMainWindow):
         traymenu.addAction("Quit All", lambda: self.appExit())
         self.tray.setContextMenu(traymenu)
         self.tray.show()
-        self.run()
+
 
     def show_gui(self):
         """
@@ -228,8 +290,8 @@ class MainWindow(QMainWindow):
         window_geometry = self.frameGeometry()
         mousepointer_position = QApplication.desktop().cursor().pos()
         screen = QApplication.desktop().screenNumber(mousepointer_position)
-        centerPoint = QApplication.desktop().screenGeometry(screen).center()
-        window_geometry.moveCenter(centerPoint)
+        centerpoint = QApplication.desktop().screenGeometry(screen).center()
+        window_geometry.moveCenter(centerpoint)
         self.move(window_geometry.topLeft())
 
     def move_to_mouse_position(self):
@@ -237,6 +299,11 @@ class MainWindow(QMainWindow):
         window_geometry = self.frameGeometry()
         window_geometry.moveCenter(QApplication.desktop().cursor().pos())
         self.move(window_geometry.topLeft())
+
+    def show_console(self):
+        """Show syncthing console"""
+
+        pass
 
     def viewSource(self):
         """Call methods to load and display page source code."""
@@ -247,16 +314,17 @@ class MainWindow(QMainWindow):
     def slotSourceDownloaded(self):
         """Show actual page source code."""
         reply = self.sender()
-        self.textEdit = QPlainTextEdit()
-        self.textEdit.setAttribute(Qt.WA_DeleteOnClose)
-        self.textEdit.setReadOnly(True)
-        self.textEdit.setPlainText(QTextStream(reply).readAll())
-        self.textEdit.show()
+        # TODO: highlight html source editor/viewer
+        self.textedit = QPlainTextEdit()
+        self.textedit.setAttribute(Qt.WA_DeleteOnClose)
+        self.textedit.setReadOnly(True)
+        self.textedit.setPlainText(QTextStream(reply).readAll())
+        self.textedit.show()
         reply.deleteLater()
 
     @pyqtSlot()
     def startLoading(self):
-        self.progressBar.show()
+        self.progressbar.show()
 
     @pyqtSlot(bool)
     def finishLoading(self, finished):
@@ -268,16 +336,16 @@ class MainWindow(QMainWindow):
         #                                             '%Y-%m-%d %H:%M:%S'))
         # TODO: following line need 6 sec to finish!!
         # TODO: (" INFO: Loading Web UI increases >250Mb RAM!.")
-        #self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
+        # self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
         # print("finishLoading %s" % datetime.strftime(datetime.now(),
         #                                             '%Y-%m-%d %H:%M:%S'))
-        self.progressBar.hide()
+        self.progressbar.hide()
 
     @pyqtSlot(int)
     def loading(self, idx):
         """loading content"""
         # print("loading %s" % idx)
-        self.progressBar.setValue(idx)
+        self.progressbar.setValue(idx)
 
     @pyqtSlot(str)
     def set_Title(self, title):
@@ -288,7 +356,7 @@ class MainWindow(QMainWindow):
 
     def check_for_updates(self):
         """Method to check for updates from Git repo versus this version."""
-        #print("TODO: https://github.com/coolshou/syncthingui/releases/latest")
+        # print("TODO: https://github.com/coolshou/syncthingui/releases/latest")
 
         print("__version__: %s" % __version__)
         '''
@@ -321,7 +389,7 @@ class MainWindow(QMainWindow):
     def appExit(self):
         # TODO: do we need to show UI when doing close?
         # self.show_gui()
-
+        # TODO: show QMessageBox on all virtual desktop
         the_conditional_is_true = QMessageBox.question(
             self, __doc__.title(), 'Quit %s?' % __doc__,
             QMessageBox.Yes | QMessageBox.No,
@@ -333,35 +401,52 @@ class MainWindow(QMainWindow):
 ###############################################################################
 
 
+class Application(QApplication):
+    def event(self, e):
+        return QApplication.event(self, e)
+
+
+def signal_handler(signal_, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+
 def main():
     """Main Loop."""
-    APPNAME = str(__package__ or __doc__)[:99].lower().strip().replace(" ", "")
+    appname = str(__package__ or __doc__)[:99].lower().strip().replace(" ", "")
     try:
         os.nice(19)  # smooth cpu priority
         libc = cdll.LoadLibrary('libc.so.6')  # set process name
-        buff = create_string_buffer(len(APPNAME) + 1)
-        buff.value = bytes(APPNAME.encode("utf-8"))
+        buff = create_string_buffer(len(appname) + 1)
+        buff.value = bytes(appname.encode("utf-8"))
         libc.prctl(15, byref(buff), 0, 0, 0)
     except Exception as reason:
         print(reason)
-    app = QApplication(sys.argv)
+    # app = QApplication(sys.argv)
+    app = Application(sys.argv)
+    # Connect your cleanup function to signal.SIGINT
+    signal.signal(signal.SIGINT, signal_handler)
+    # And start a timer to call Application.event repeatedly.
+    # You can change the timer parameter as you like.
+    app.startTimer(200)
+
     app.setApplicationName(__doc__.strip().lower())
     app.setOrganizationName(__doc__.strip().lower())
     app.setOrganizationDomain(__doc__.strip())
-    app.setWindowIcon(QIcon.fromTheme("text-x-python"))
+    # app.setWindowIcon(QIcon.fromTheme("text-x-python"))
     web = MainWindow()
     app.aboutToQuit.connect(web.process.kill)
     try:
         opts, args = getopt(sys.argv[1:], 'hv', ('version', 'help'))
     except:
         pass
-    for o, v in opts:
-        if o in ('-h', '--help'):
+    for opt, val in opts:
+        if opt in ('-h', '--help'):
             print(''' Usage:
                   -h, --help        Show help informations and exit.
                   -v, --version     Show version information and exit.''')
             return sys.exit(1)
-        elif o in ('-v', '--version'):
+        elif opt in ('-v', '--version'):
             print(__version__)
             return sys.exit(1)
     # web.show()  # comment out to hide/show main window, normally dont needed
