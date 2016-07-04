@@ -16,14 +16,14 @@ from urllib import request
 from webbrowser import open_new_tab
 
 # require python3-pyqt5
-from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize,
-                          QRect)
+from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize)
 from PyQt5.QtGui import QIcon, QTextOption
 from PyQt5.QtNetwork import QNetworkRequest
 # ubuntu require: python3-pyqt5.qtwebkit
 from PyQt5.QtWebKitWidgets import QWebView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
+                             QTextEdit,
                              QShortcut, QSystemTrayIcon, QProgressBar,
                              QSplitter, QWidget, QFormLayout)
 
@@ -73,9 +73,6 @@ class MainWindow(QMainWindow):
 
         self.init_gui()
         self.init_menu()
-
-        #self.setCentralWidget(self.view)
-
         self.init_systray()
 
         self.run()
@@ -94,10 +91,10 @@ class MainWindow(QMainWindow):
 
         # QWebView
         self.view = QWebView(self)
-        self.view.loadStarted.connect(self.startLoading)
-        self.view.loadFinished.connect(self.finishLoading)
+        self.view.loadStarted.connect(self.start_loading)
+        self.view.loadFinished.connect(self.finish_loading)
         self.view.loadProgress.connect(self.loading)
-        self.view.titleChanged.connect(self.set_Title)
+        self.view.titleChanged.connect(self.set_title)
         self.view.page().linkHovered.connect(
             lambda link_txt: self.statusBar().showMessage(link_txt[:99], 3000))
         QShortcut("Ctrl++", self, activated=lambda:
@@ -107,17 +104,22 @@ class MainWindow(QMainWindow):
         QShortcut("Ctrl+0", self, activated=lambda: self.view.setZoomFactor(1))
         QShortcut("Ctrl+q", self, activated=lambda: self.close())
 
-        # TODO: syncthing console
+        # syncthing console
         self.consolewidget = QWidget(self)
         # TODO: start at specify (w,h)
-        # self.consolewidget.resize(QSize(self.statusBar().size().width(), 100))
         self.consolewidget.setMinimumSize(QSize(200, 100))
-        self.consolewidget.setStyleSheet("margin:0px; \
-        border:1px solid rgb(0, 0, 0); ")
-        self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
+        #self.consolewidget.setStyleSheet("margin:0px; padding: 0px; \
+        #border:1px solid rgb(0, 0, 0);")
+        # border-radius: 40px;")
+        # TODO read syncthing console visible from setting
+        # self.consolewidget.setVisible(False)
+        # self.consolewidget.showEvent
+        #self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
+        self.consoletextedit = QTextEdit(parent=self.consolewidget)
         self.consoletextedit.setWordWrapMode(QTextOption.NoWrap)
-        self.consoletextedit.setStyleSheet("margin:0px;")
+        # self.consoletextedit.setStyleSheet("margin:0px; padding: 0px;")
         layout = QFormLayout()
+        # layout.setSpacing(0)
         layout.addRow(self.consoletextedit)
         self.consolewidget.setLayout(layout)
 
@@ -128,6 +130,13 @@ class MainWindow(QMainWindow):
         # process
         self.process = QProcess()
         self.process.error.connect(self._process_failed)
+        # QProcess emits `readyRead` when there is data to be read
+        self.process.readyRead.connect(self._process_dataReady)
+        # Just to prevent accidentally running multiple times
+        # Disable the button when process starts, and enable it when it finishes
+        #self.process.started.connect(lambda: self.runButton.setEnabled(False))
+        #self.process.finished.connect(lambda: self.runButton.setEnabled(True))
+
         # backend options
         self.chrt = QCheckBox("Smooth CPU ", checked=True)
         self.ionice = QCheckBox("Smooth HDD ", checked=True)
@@ -151,85 +160,85 @@ class MainWindow(QMainWindow):
     def init_menu(self):
         """init menu setup"""
         # file menu
-        fileMenu = self.menuBar().addMenu("File")
+        file_menu = self.menuBar().addMenu("File")
         # TODO: setting menu item
-        fileMenu.addAction("Exit", lambda: self.close())
+        file_menu.addAction("Exit", lambda: self.close())
         # Syncthing menu
-        syncMenu = self.menuBar().addMenu("Syncthing")
-        syncMenu.addAction("Start Syncronization", lambda: self.run())
-        syncMenu.addAction("Stop Syncronization", lambda: self.process.kill())
+        sync_menu = self.menuBar().addMenu("Syncthing")
+        sync_menu.addAction("Start Syncronization", lambda: self.run())
+        sync_menu.addAction("Stop Syncronization", lambda: self.process.kill())
         # TODO: restart
         # TODO: reflash F5
-        syncMenu.addAction("Open in external browser",
-                           lambda: open_new_tab(URL))
+        sync_menu.addAction("Open in external browser",
+                            lambda: open_new_tab(URL))
 
         # view menu
-        viewMenu = self.menuBar().addMenu("View")
+        view_menu = self.menuBar().addMenu("View")
         # TODO: syncthing console menu
-        viewMenu.addAction("syncthing console", lambda: self.show_console)
+        view_menu.addAction("syncthing console", lambda: self.show_console)
         #
-        zoomMenu = viewMenu.addMenu("Zoom browser")
-        zoomMenu.addAction(
+        zoom_menu = view_menu.addMenu("Zoom browser")
+        zoom_menu.addAction(
             "Zoom In",
             lambda: self.view.setZoomFactor(self.view.zoomFactor() + .2))
-        zoomMenu.addAction(
+        zoom_menu.addAction(
             "Zoom Out",
             lambda: self.view.setZoomFactor(self.view.zoomFactor() - .2))
-        zoomMenu.addAction(
+        zoom_menu.addAction(
             "Zoom To...", lambda: self.view.setZoomFactor(QInputDialog.getInt(
                 self, __doc__, "<b>Zoom factor ?:", 1, 1, 9)[0]))
-        zoomMenu.addAction("Zoom Reset", lambda: self.view.setZoomFactor(1))
-        viewMenu.addSeparator()
-        viewMenu.addAction("View Page Source", lambda: self.viewSource)
+        zoom_menu.addAction("Zoom Reset", lambda: self.view.setZoomFactor(1))
+        view_menu.addSeparator()
+        view_menu.addAction("View Page Source", lambda: self.view_source)
 
         # window menu
-        windowMenu = self.menuBar().addMenu("&Window")
-        windowMenu.addAction("Minimize", lambda: self.showMinimized())
-        windowMenu.addAction("Maximize", lambda: self.showMaximized())
-        windowMenu.addAction("Restore", lambda: self.showNormal())
-        windowMenu.addAction("Center", lambda: self.center())
-        windowMenu.addAction("Top-Left", lambda: self.move(0, 0))
-        windowMenu.addAction("To Mouse", lambda: self.move_to_mouse_position())
-        windowMenu.addAction("Fullscreen", lambda: self.showFullScreen())
-        windowMenu.addSeparator()
-        windowMenu.addAction("Increase size", lambda: self.resize(
+        window_menu = self.menuBar().addMenu("&Window")
+        window_menu.addAction("Minimize", lambda: self.showMinimized())
+        window_menu.addAction("Maximize", lambda: self.showMaximized())
+        window_menu.addAction("Restore", lambda: self.showNormal())
+        window_menu.addAction("Center", lambda: self.center())
+        window_menu.addAction("Top-Left", lambda: self.move(0, 0))
+        window_menu.addAction("To Mouse", lambda: self.move_to_mouse_position())
+        window_menu.addAction("Fullscreen", lambda: self.showFullScreen())
+        window_menu.addSeparator()
+        window_menu.addAction("Increase size", lambda: self.resize(
             self.size().width() * 1.2, self.size().height() * 1.2))
-        windowMenu.addAction("Decrease size", lambda: self.resize(
+        window_menu.addAction("Decrease size", lambda: self.resize(
             self.size().width() // 1.2, self.size().height() // 1.2))
-        windowMenu.addAction("Minimum size", lambda:
-                             self.resize(self.minimumSize()))
-        windowMenu.addAction("Maximum size", lambda:
-                             self.resize(self.maximumSize()))
-        windowMenu.addAction("Horizontal Wide", lambda: self.resize(
+        window_menu.addAction("Minimum size", lambda:
+                              self.resize(self.minimumSize()))
+        window_menu.addAction("Maximum size", lambda:
+                              self.resize(self.maximumSize()))
+        window_menu.addAction("Horizontal Wide", lambda: self.resize(
             self.maximumSize().width(), self.minimumSize().height()))
-        windowMenu.addAction("Vertical Tall", lambda: self.resize(
+        window_menu.addAction("Vertical Tall", lambda: self.resize(
             self.minimumSize().width(), self.maximumSize().height()))
-        windowMenu.addSeparator()
-        windowMenu.addAction("Disable Resize",
-                             lambda: self.setFixedSize(self.size()))
+        window_menu.addSeparator()
+        window_menu.addAction("Disable Resize",
+                              lambda: self.setFixedSize(self.size()))
         # help menu
-        helpMenu = self.menuBar().addMenu("&Help")
-        helpMenu.addAction("Support Forum", lambda: open_new_tab(HELP_URL_0))
-        helpMenu.addAction("Lastest Release", lambda: open_new_tab(HELP_URL_1))
-        helpMenu.addAction("Documentation", lambda: open_new_tab(HELP_URL_2))
-        helpMenu.addAction("Bugs", lambda: open_new_tab(HELP_URL_3))
-        helpMenu.addAction("Source Code", lambda: open_new_tab(HELP_URL_4))
-        helpMenu.addSeparator()
-        helpMenu.addAction("About Qt 5", lambda: QMessageBox.aboutQt(self))
-        helpMenu.addAction("About Python 3",
-                           lambda: open_new_tab('https://www.python.org'))
-        helpMenu.addAction("About " + __doc__,
-                           lambda: QMessageBox.about(self, __doc__, HELPMSG))
-        helpMenu.addSeparator()
-        helpMenu.addAction("Keyboard Shortcuts", lambda:
-                           QMessageBox.information(self, __doc__, SHORTCUTS))
-        helpMenu.addAction("View GitHub Repo", lambda: open_new_tab(__url__))
+        help_menu = self.menuBar().addMenu("&Help")
+        help_menu.addAction("Support Forum", lambda: open_new_tab(HELP_URL_0))
+        help_menu.addAction("Lastest Release", lambda: open_new_tab(HELP_URL_1))
+        help_menu.addAction("Documentation", lambda: open_new_tab(HELP_URL_2))
+        help_menu.addAction("Bugs", lambda: open_new_tab(HELP_URL_3))
+        help_menu.addAction("Source Code", lambda: open_new_tab(HELP_URL_4))
+        help_menu.addSeparator()
+        help_menu.addAction("About Qt 5", lambda: QMessageBox.aboutQt(self))
+        help_menu.addAction("About Python 3",
+                            lambda: open_new_tab('https://www.python.org'))
+        help_menu.addAction("About " + __doc__,
+                            lambda: QMessageBox.about(self, __doc__, HELPMSG))
+        help_menu.addSeparator()
+        help_menu.addAction("Keyboard Shortcuts", lambda:
+                            QMessageBox.information(self, __doc__, SHORTCUTS))
+        help_menu.addAction("View GitHub Repo", lambda: open_new_tab(__url__))
         if not sys.platform.startswith("win"):
-            helpMenu.addAction("Show Source Code", lambda: call(
+            help_menu.addAction("Show Source Code", lambda: call(
                 ('xdg-open ' if sys.platform.startswith("linux") else 'open ')
                 + __file__, shell=True))
-        helpMenu.addSeparator()
-        helpMenu.addAction("Check Updates", lambda: self.check_for_updates())
+        help_menu.addSeparator()
+        help_menu.addAction("Check Updates", lambda: self.check_for_updates())
 
     def init_systray(self):
         """init system tray icon"""
@@ -254,7 +263,7 @@ class MainWindow(QMainWindow):
         traymenu.addSeparator()
         traymenu.addAction("Open Web", lambda: open_new_tab(URL))
         # traymenu.addAction("Quit All", lambda: self.close())
-        traymenu.addAction("Quit All", lambda: self.appExit())
+        traymenu.addAction("Quit All", lambda: self.app_exit())
         self.tray.setContextMenu(traymenu)
         self.tray.show()
 
@@ -282,8 +291,15 @@ class MainWindow(QMainWindow):
     def _process_failed(self):
         """Read and return errors."""
         self.statusBar().showMessage("ERROR:Fail:Syncthing blow up in pieces!")
-        print("ERROR:Fail:Syncthing blow up in pieces! Wheres your God now ?")
+        print("ERROR:Fail:Syncthing blow up in pieces! Wheres your God now?")
         return str(self.process.readAllStandardError()).strip().lower()
+
+    def _process_dataReady(self):
+        """get process stdout/strerr when data ready"""
+        # TODO: format the msg to remove extra b and \n
+        msg = str(self.process.readAll())
+        self.consoletextedit.append(msg)
+        self.consoletextedit.ensureCursorVisible()
 
     def center(self):
         """Center Window on the Current Screen,with Multi-Monitor support."""
@@ -302,16 +318,18 @@ class MainWindow(QMainWindow):
 
     def show_console(self):
         """Show syncthing console"""
+        visible = not self.consolewidget.isVisible
+        print("bVisible: %s" % visible)
+        self.consolewidget.setVisible(True)
+        self.consolewidget.resize(QSize(200, 100))
 
-        pass
-
-    def viewSource(self):
+    def view_source(self):
         """Call methods to load and display page source code."""
-        accessManager = self.view.page().networkAccessManager()
-        reply = accessManager.get(QNetworkRequest(self.view.url()))
-        reply.finished.connect(self.slotSourceDownloaded)
+        access_manager = self.view.page().networkAccessManager()
+        reply = access_manager.get(QNetworkRequest(self.view.url()))
+        reply.finished.connect(self.slot_source_downloaded)
 
-    def slotSourceDownloaded(self):
+    def slot_source_downloaded(self):
         """Show actual page source code."""
         reply = self.sender()
         # TODO: highlight html source editor/viewer
@@ -323,21 +341,22 @@ class MainWindow(QMainWindow):
         reply.deleteLater()
 
     @pyqtSlot()
-    def startLoading(self):
+    def start_loading(self):
+        """show progressbar when downloading data"""
         self.progressbar.show()
 
     @pyqtSlot(bool)
-    def finishLoading(self, finished):
+    def finish_loading(self, finished):
         """Finished loading content."""
         self.view.settings().clearMemoryCaches()
         self.view.settings().clearIconDatabase()
 
-        # print("finishLoading %s" % datetime.strftime(datetime.now(),
+        # print("finish_loading %s" % datetime.strftime(datetime.now(),
         #                                             '%Y-%m-%d %H:%M:%S'))
         # TODO: following line need 6 sec to finish!!
         # TODO: (" INFO: Loading Web UI increases >250Mb RAM!.")
         # self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
-        # print("finishLoading %s" % datetime.strftime(datetime.now(),
+        # print("finish_loading %s" % datetime.strftime(datetime.now(),
         #                                             '%Y-%m-%d %H:%M:%S'))
         self.progressbar.hide()
 
@@ -348,7 +367,7 @@ class MainWindow(QMainWindow):
         self.progressbar.setValue(idx)
 
     @pyqtSlot(str)
-    def set_Title(self, title):
+    def set_title(self, title):
         """set title when webview's title change"""
         # print("title: %s" % title)
         if len(title.strip()) > 0:
@@ -386,7 +405,8 @@ class MainWindow(QMainWindow):
             self.hide()
             event.ignore()
 
-    def appExit(self):
+    def app_exit(self):
+        """exit app"""
         # TODO: do we need to show UI when doing close?
         # self.show_gui()
         # TODO: show QMessageBox on all virtual desktop
@@ -402,11 +422,14 @@ class MainWindow(QMainWindow):
 
 
 class Application(QApplication):
-    def event(self, e):
-        return QApplication.event(self, e)
+    """wrapper QApplication to handle event"""
+    def event(self, event_):
+        """application event overwrite"""
+        return QApplication.event(self, event_)
 
 
 def signal_handler(signal_, frame):
+    """signal handler"""
     print('You pressed Ctrl+C!')
     sys.exit(0)
 
