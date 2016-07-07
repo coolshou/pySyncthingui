@@ -2,7 +2,15 @@
 # -*- coding: utf-8 -*-
 # PEP8:OK, LINT:OK, PY3:OK
 # metadata
-"""SyncthinGUI."""
+
+'''SyncthinGUI.'''
+
+'''
+require: pyqt5 (5.6)
+    pip3 install pyqt5
+    cp  /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/* /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/
+    cp -R /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/ /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/qtwebengine_locales/
+'''
 
 # imports
 import os
@@ -20,12 +28,17 @@ from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize)
 from PyQt5.QtGui import QIcon, QTextOption
 from PyQt5.QtNetwork import QNetworkRequest
 # ubuntu require: python3-pyqt5.qtwebkit
-from PyQt5.QtWebKitWidgets import QWebView
+# WebKit1 based
+#from PyQt5.QtWebKitWidgets import QWebView as QWebEngineView
+# new in python3
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
                              QTextEdit,
                              QShortcut, QSystemTrayIcon, QProgressBar,
                              QSplitter, QWidget, QFormLayout)
+
+import syncthingui_rc
 
 # metadata
 __package__ = "syncthingui"
@@ -90,7 +103,8 @@ class MainWindow(QMainWindow):
         self.center()
 
         # QWebView
-        self.view = QWebView(self)
+        # self.view = QWebView(self)
+        self.view = QWebEngineView(self)
         self.view.loadStarted.connect(self.start_loading)
         self.view.loadFinished.connect(self.finish_loading)
         self.view.loadProgress.connect(self.loading)
@@ -108,13 +122,14 @@ class MainWindow(QMainWindow):
         self.consolewidget = QWidget(self)
         # TODO: start at specify (w,h)
         self.consolewidget.setMinimumSize(QSize(200, 100))
-        #self.consolewidget.setStyleSheet("margin:0px; padding: 0px; \
-        #border:1px solid rgb(0, 0, 0);")
+        # TODO: setStyleSheet
+        # self.consolewidget.setStyleSheet("margin:0px; padding: 0px; \
+        # border:1px solid rgb(0, 0, 0);")
         # border-radius: 40px;")
         # TODO read syncthing console visible from setting
         # self.consolewidget.setVisible(False)
         # self.consolewidget.showEvent
-        #self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
+        # self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
         self.consoletextedit = QTextEdit(parent=self.consolewidget)
         self.consoletextedit.setWordWrapMode(QTextOption.NoWrap)
         # self.consoletextedit.setStyleSheet("margin:0px; padding: 0px;")
@@ -133,9 +148,9 @@ class MainWindow(QMainWindow):
         # QProcess emits `readyRead` when there is data to be read
         self.process.readyRead.connect(self._process_dataReady)
         # Just to prevent accidentally running multiple times
-        # Disable the button when process starts, and enable it when it finishes
-        #self.process.started.connect(lambda: self.runButton.setEnabled(False))
-        #self.process.finished.connect(lambda: self.runButton.setEnabled(True))
+    # Disable the button when process starts, and enable it when it finishes
+    # self.process.started.connect(lambda: self.runButton.setEnabled(False))
+    # self.process.finished.connect(lambda: self.runButton.setEnabled(True))
 
         # backend options
         self.chrt = QCheckBox("Smooth CPU ", checked=True)
@@ -153,6 +168,9 @@ class MainWindow(QMainWindow):
         self.toolbar.addSeparator()
         self.toolbar.addWidget(self.chrt)
         self.toolbar.addWidget(self.ionice)
+        self.toolbar.addSeparator()
+        # TODO: test event API
+
 
         # final gui setup
         self.setCentralWidget(self.splitter)
@@ -246,7 +264,8 @@ class MainWindow(QMainWindow):
         # tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
         # icon = QIcon("syncthingui.png")
         # TODO: /usr/share/icons/
-        icon = QIcon("syncthingui.svg")
+        # icon = QIcon("syncthingui.svg")
+        icon = QIcon(":/images/syncthingui.svg")
         self.setWindowIcon(icon)
         # icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         # tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
@@ -261,7 +280,7 @@ class MainWindow(QMainWindow):
         traymenu.addAction("Show", lambda: self.show_gui())
         traymenu.addAction("Hide", lambda: self.hide())
         traymenu.addSeparator()
-        traymenu.addAction("Open Web", lambda: open_new_tab(URL))
+        # traymenu.addAction("Open Web", lambda: open_new_tab(URL))
         # traymenu.addAction("Quit All", lambda: self.close())
         traymenu.addAction("Quit All", lambda: self.app_exit())
         self.tray.setContextMenu(traymenu)
@@ -348,11 +367,12 @@ class MainWindow(QMainWindow):
     @pyqtSlot(bool)
     def finish_loading(self, finished):
         """Finished loading content."""
-        self.view.settings().clearMemoryCaches()
-        self.view.settings().clearIconDatabase()
+        # TODO: WebEngineView does not have following function?
+        # self.view.settings().clearMemoryCaches()
+        # self.view.settings().clearIconDatabase()
 
         # print("finish_loading %s" % datetime.strftime(datetime.now(),
-        #                                             '%Y-%m-%d %H:%M:%S'))
+        #                                              '%Y-%m-%d %H:%M:%S'))
         # TODO: following line need 6 sec to finish!!
         # TODO: (" INFO: Loading Web UI increases >250Mb RAM!.")
         # self.view.page().mainFrame().evaluateJavaScript(BASE_JS)
@@ -363,7 +383,7 @@ class MainWindow(QMainWindow):
     @pyqtSlot(int)
     def loading(self, idx):
         """loading content"""
-        # print("loading %s" % idx)
+        #print("loading %s" % idx)
         self.progressbar.setValue(idx)
 
     @pyqtSlot(str)

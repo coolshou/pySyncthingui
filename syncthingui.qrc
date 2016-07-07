@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource>
+    <file>images/syncthingui.svg</file>
+    <file>images/stop.svg</file>
+    <file>images/start.svg</file>
+</qresource>
+</RCC>
