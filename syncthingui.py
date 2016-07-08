@@ -5,18 +5,14 @@
 
 '''SyncthinGUI.'''
 
-'''
-require: pyqt5 (5.6)
-    pip3 install pyqt5
-    cp  /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/* /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/
-    cp -R /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/ /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/qtwebengine_locales/
-'''
-
-# imports
 import os
 import sys
 import signal
-from datetime import datetime
+import psutil
+import time
+from threading import Timer, Event, Lock
+# imports
+# from datetime import datetime
 from ctypes import byref, cdll, create_string_buffer
 from getopt import getopt
 from subprocess import call, getoutput
@@ -25,7 +21,7 @@ from webbrowser import open_new_tab
 
 # require python3-pyqt5
 from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize)
-from PyQt5.QtGui import QIcon, QTextOption
+from PyQt5.QtGui import QIcon, QPixmap, QTransform, QTextOption, QTextCursor
 from PyQt5.QtNetwork import QNetworkRequest
 # ubuntu require: python3-pyqt5.qtwebkit
 # WebKit1 based
@@ -33,12 +29,20 @@ from PyQt5.QtNetwork import QNetworkRequest
 # new in python3
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
-                             QMainWindow, QMenu, QMessageBox, QPlainTextEdit,
-                             QTextEdit,
+                             QMainWindow, QMenu, QMessageBox,
+                             QPlainTextEdit, QTextEdit,
+                             QVBoxLayout, QHBoxLayout,
                              QShortcut, QSystemTrayIcon, QProgressBar,
-                             QSplitter, QWidget, QFormLayout)
+                             QSplitter, QWidget)
 
 import syncthingui_rc
+
+'''
+require: pyqt5 (5.6)
+    pip3 install pyqt5
+    cp  /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/* /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/
+    cp -R /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/ /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/qtwebengine_locales/
+'''
 
 # metadata
 __package__ = "syncthingui"
@@ -74,6 +78,87 @@ document.querySelector("head").appendChild(custom_css);"""
 
 
 ###############################################################################
+class AnimatedSysTrayIcon(QSystemTrayIcon):
+    """Animated SystemTrayIcon"""
+    def __init__(self, icon, period=1.0, parent=None, *args, **kwargs):
+        """ construct """
+        super(AnimatedSysTrayIcon, self).__init__(parent)
+        self.args = args
+        self.kwargs = kwargs
+        # Thread timer
+        self._interval = period  # after this time, the timer will run
+        self.ani_timer = None
+        self.ani_stop = False
+        self.schedule_lock = Lock()
+
+        self.ani_icons = []
+        self.ani_idx = 0
+        self.mainicon = QIcon(icon)
+        self.setIcon(self.mainicon)
+
+    def add_ani_icon(self, QIcon):
+        """add QIcon for animate use"""
+        self.ani_icons.append(QIcon)
+
+    def restore_icon(self):
+        """restore to original icon"""
+        self.ani_idx = 0
+        self.setIcon(self.mainicon)
+
+    def _run(self):
+        """
+        Run desired callback and then reschedule Timer
+        (if thread is not stopped)
+        """
+        try:
+            self.update_trayicon()
+        except Exception as e:
+            # logging.exception("Exception in running periodic thread")
+            raise("Exception in running periodic thread")
+        finally:
+            with self.schedule_lock:
+                if not self.ani_stop:
+                    self.schedule_timer()
+
+    def update_trayicon(self):
+        """use ani_icons to loop update trayicon """
+        total = len(self.ani_icons)
+
+        self.ani_idx = self.ani_idx + 1
+        # print("ani_idx: %s" % self.ani_idx)
+        if self.ani_idx > (total - 1):
+            self.ani_idx = 0
+        icon = self.ani_icons[self.ani_idx]
+        self.setIcon(icon)
+
+    def animate_start(self):
+        """
+        Mimics Thread standard start method
+        """
+        total = len(self.ani_icons)
+        # print("total: %s" % total)
+        if total < 2:
+            try:
+                raise NameError("Too few icons to do animate!!")
+            finally:
+                raise
+        self.schedule_timer()
+
+    def schedule_timer(self):
+        """
+        Schedules next Timer run
+        """
+        self.ani_timer = Timer(self._interval, self._run,
+                               *self.args, **self.kwargs)
+        self.ani_timer.start()
+
+    def animate_stop(self):
+        """stop animate tray icon"""
+        with self.schedule_lock:
+            self.ani_stop = True
+            if self.ani_timer is not None:
+                self.ani_timer.cancel()
+        self.restore_icon()
 
 
 class MainWindow(QMainWindow):
@@ -83,6 +168,15 @@ class MainWindow(QMainWindow):
     def __init__(self):
         """Init class."""
         super(MainWindow, self).__init__()
+        self.pixmap_syncthingui = QPixmap(":/images/syncthingui.svg")
+        tf = QTransform()
+        self.pixmap_syncthingui0 = QPixmap(":/images/syncthingui.svg")
+        tf.rotate(90.0)
+        self.pixmap_syncthingui1 = self.pixmap_syncthingui0.transformed(tf)
+        tf.rotate(180.0)
+        self.pixmap_syncthingui2 = self.pixmap_syncthingui0.transformed(tf)
+        tf.rotate(270.0)
+        self.pixmap_syncthingui3 = self.pixmap_syncthingui0.transformed(tf)
 
         self.init_gui()
         self.init_menu()
@@ -92,6 +186,8 @@ class MainWindow(QMainWindow):
 
     def init_gui(self):
         """init gui setup"""
+        self.setWindowIcon(QIcon(self.pixmap_syncthingui))
+
         self.progressbar = QProgressBar()
         self.statusBar().showMessage(getoutput(SYNCTHING + ' --version'))
         self.statusBar().addPermanentWidget(self.progressbar)
@@ -99,7 +195,6 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(900, 600)
         self.setMaximumSize(1280, 1024)
         self.resize(self.minimumSize())
-        self.setWindowIcon(QIcon.fromTheme("text-x-python"))
         self.center()
 
         # QWebView
@@ -130,12 +225,18 @@ class MainWindow(QMainWindow):
         # self.consolewidget.setVisible(False)
         # self.consolewidget.showEvent
         # self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
+        self.consoletoolbar = QWidget(self)
+        hlayout = QHBoxLayout()
+        hlayout
+        self.consoletoolbar.setLayout(hlayout)
         self.consoletextedit = QTextEdit(parent=self.consolewidget)
         self.consoletextedit.setWordWrapMode(QTextOption.NoWrap)
+        # self.consoletextedit.setStyleSheet(" border:1px solid rgb(0, 0, 0);")
         # self.consoletextedit.setStyleSheet("margin:0px; padding: 0px;")
-        layout = QFormLayout()
-        # layout.setSpacing(0)
-        layout.addRow(self.consoletextedit)
+        layout = QVBoxLayout()
+        layout.addWidget(self.consoletoolbar)
+        layout.addWidget(self.consoletextedit)
+
         self.consolewidget.setLayout(layout)
 
         self.splitter = QSplitter(Qt.Vertical)
@@ -147,6 +248,7 @@ class MainWindow(QMainWindow):
         self.process.error.connect(self._process_failed)
         # QProcess emits `readyRead` when there is data to be read
         self.process.readyRead.connect(self._process_dataReady)
+        self.process.stateChanged.connect(self._process_stateChanged)
         # Just to prevent accidentally running multiple times
     # Disable the button when process starts, and enable it when it finishes
     # self.process.started.connect(lambda: self.runButton.setEnabled(False))
@@ -161,19 +263,26 @@ class MainWindow(QMainWindow):
         self.ionice.setStatusTip(self.ionice.toolTip())
         # main toolbar
         self.toolbar = self.addToolBar("SyncthinGUI Toolbar")
-        self.toolbar.addAction(QIcon.fromTheme("media-playback-stop"),
-                               "Stop Sync", lambda: self.process.kill())
-        self.toolbar.addAction(QIcon.fromTheme("media-playback-start"),
+        # self.toolbar.addAction(QIcon.fromTheme("media-playback-stop"),
+        self.toolbar.addAction(QIcon(":/images/stop.svg"),
+                               "Stop Sync", lambda: self.syncthing_stop())
+        # self.toolbar.addAction(QIcon.fromTheme("media-playback-start"),
+        self.toolbar.addAction(QIcon(":/images/start.svg"),
                                "Restart Sync", lambda: self.run())
         self.toolbar.addSeparator()
         self.toolbar.addWidget(self.chrt)
         self.toolbar.addWidget(self.ionice)
         self.toolbar.addSeparator()
         # TODO: test event API
-
+        self.toolbar.addAction(QIcon(":/images/start.svg"),
+                               "test ", lambda: self.test())
 
         # final gui setup
         self.setCentralWidget(self.splitter)
+
+    def test(self):
+        """ test some function """
+        print("test")
 
     def init_menu(self):
         """init menu setup"""
@@ -184,7 +293,8 @@ class MainWindow(QMainWindow):
         # Syncthing menu
         sync_menu = self.menuBar().addMenu("Syncthing")
         sync_menu.addAction("Start Syncronization", lambda: self.run())
-        sync_menu.addAction("Stop Syncronization", lambda: self.process.kill())
+        sync_menu.addAction("Stop Syncronization",
+                            lambda: self.syncthing_stop())
         # TODO: restart
         # TODO: reflash F5
         sync_menu.addAction("Open in external browser",
@@ -203,11 +313,14 @@ class MainWindow(QMainWindow):
             "Zoom Out",
             lambda: self.view.setZoomFactor(self.view.zoomFactor() - .2))
         zoom_menu.addAction(
-            "Zoom To...", lambda: self.view.setZoomFactor(QInputDialog.getInt(
+            "Zoom To...",
+            lambda: self.view.setZoomFactor(QInputDialog.getInt(
                 self, __doc__, "<b>Zoom factor ?:", 1, 1, 9)[0]))
         zoom_menu.addAction("Zoom Reset", lambda: self.view.setZoomFactor(1))
         view_menu.addSeparator()
-        view_menu.addAction("View Page Source", lambda: self.view_source)
+        act = view_menu.addAction("View Page Source",
+                                  lambda: self.view_syncthing_source)
+        act.setDisabled(True)
 
         # window menu
         window_menu = self.menuBar().addMenu("&Window")
@@ -216,7 +329,8 @@ class MainWindow(QMainWindow):
         window_menu.addAction("Restore", lambda: self.showNormal())
         window_menu.addAction("Center", lambda: self.center())
         window_menu.addAction("Top-Left", lambda: self.move(0, 0))
-        window_menu.addAction("To Mouse", lambda: self.move_to_mouse_position())
+        window_menu.addAction("To Mouse",
+                              lambda: self.move_to_mouse_position())
         window_menu.addAction("Fullscreen", lambda: self.showFullScreen())
         window_menu.addSeparator()
         window_menu.addAction("Increase size", lambda: self.resize(
@@ -237,7 +351,8 @@ class MainWindow(QMainWindow):
         # help menu
         help_menu = self.menuBar().addMenu("&Help")
         help_menu.addAction("Support Forum", lambda: open_new_tab(HELP_URL_0))
-        help_menu.addAction("Lastest Release", lambda: open_new_tab(HELP_URL_1))
+        help_menu.addAction("Lastest Release",
+                            lambda: open_new_tab(HELP_URL_1))
         help_menu.addAction("Documentation", lambda: open_new_tab(HELP_URL_2))
         help_menu.addAction("Bugs", lambda: open_new_tab(HELP_URL_3))
         help_menu.addAction("Source Code", lambda: open_new_tab(HELP_URL_4))
@@ -252,29 +367,28 @@ class MainWindow(QMainWindow):
                             QMessageBox.information(self, __doc__, SHORTCUTS))
         help_menu.addAction("View GitHub Repo", lambda: open_new_tab(__url__))
         if not sys.platform.startswith("win"):
-            help_menu.addAction("Show Source Code", lambda: call(
-                ('xdg-open ' if sys.platform.startswith("linux") else 'open ')
-                + __file__, shell=True))
+            help_menu.addAction("Show Source Code", lambda: self.view_source())
         help_menu.addSeparator()
         help_menu.addAction("Check Updates", lambda: self.check_for_updates())
 
     def init_systray(self):
         """init system tray icon"""
-        # System Tray
-        # tray = QSystemTrayIcon(QIcon.fromTheme("text-x-python"), self)
-        # icon = QIcon("syncthingui.png")
-        # TODO: /usr/share/icons/
-        # icon = QIcon("syncthingui.svg")
-        icon = QIcon(":/images/syncthingui.svg")
-        self.setWindowIcon(icon)
-        # icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/file/actions/view-right-new-2.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        # tray = QSystemTrayIcon(QIcon("syncthingui.png"), self)
-        self.tray = QSystemTrayIcon(icon, self)
+        # self.tray = QSystemTrayIcon(QIcon(self.pixmap_syncthingui), self)
+        self.tray = AnimatedSysTrayIcon(QIcon(self.pixmap_syncthingui), self)
+        self.tray.add_ani_icon(QIcon(self.pixmap_syncthingui0))
+        self.tray.add_ani_icon(QIcon(self.pixmap_syncthingui1))
+        self.tray.add_ani_icon(QIcon(self.pixmap_syncthingui2))
+        self.tray.add_ani_icon(QIcon(self.pixmap_syncthingui3))
+
         self.tray.setToolTip(__doc__.strip().capitalize())
         traymenu = QMenu(self)
         traymenu.addAction(__doc__).setDisabled(True)
         traymenu.addSeparator()
-        traymenu.addAction("Stop Sync", lambda: self.process.kill())
+        # to test animate
+        # traymenu.addAction("start", lambda: self.tray.animate_start())
+        # traymenu.addAction("stop", lambda: self.tray.animate_stop())
+        # traymenu.addSeparator()
+        traymenu.addAction("Stop Sync", lambda: self.syncthing_stop())
         traymenu.addAction("Restart Sync", lambda: self.run())
         traymenu.addSeparator()
         traymenu.addAction("Show", lambda: self.show_gui())
@@ -286,7 +400,6 @@ class MainWindow(QMainWindow):
         self.tray.setContextMenu(traymenu)
         self.tray.show()
 
-
     def show_gui(self):
         """
         Helper method to show UI, this should not be needed, but I discovered.
@@ -295,9 +408,26 @@ class MainWindow(QMainWindow):
         # webview require 70Mb to show webpage
         self.view.load(QUrl(URL))
 
+    def syncthing_start(self):
+        """syncthing start"""
+        self.run()
+
+    def syncthing_stop(self):
+        """syncthing stop"""
+        print("try to stop syncthing")
+        self.process.kill()
+        # check there is no other syncthing is running!
+        for proc in psutil.process_iter():
+            # check whether the process name matches
+            # print("procress: %s " % proc.name())
+            if proc.name() == SYNCTHING:
+                proc.kill()
+
     def run(self):
         """Run bitch run!."""
-        self.process.kill()
+        # Stop first!
+        self.syncthing_stop()
+
         command_to_run_syncthing = " ".join((
             "ionice --ignore --class 3" if self.ionice.isChecked() else "",
             "chrt --verbose --idle 0" if self.chrt.isChecked() else "",
@@ -307,18 +437,36 @@ class MainWindow(QMainWindow):
         if not self.process.waitForStarted():
             self._process_failed()
 
+    @pyqtSlot()
     def _process_failed(self):
         """Read and return errors."""
         self.statusBar().showMessage("ERROR:Fail:Syncthing blow up in pieces!")
         print("ERROR:Fail:Syncthing blow up in pieces! Wheres your God now?")
         return str(self.process.readAllStandardError()).strip().lower()
 
+    @pyqtSlot()
     def _process_dataReady(self):
         """get process stdout/strerr when data ready"""
         # TODO: format the msg to remove extra b and \n
         msg = str(self.process.readAll())
-        self.consoletextedit.append(msg)
+        lines = msg.split("'")
+        tmp = lines[1]
+        tmp = tmp.splitlines(0)
+        lines = tmp[0].split("\\n")
+        for line in lines:
+            if line != "":
+                # print("1: %s" % line)
+                self.consoletextedit.append(line)
         self.consoletextedit.ensureCursorVisible()
+        # autoscroll to last line's first character
+        self.consoletextedit.moveCursor(QTextCursor.End)
+        self.consoletextedit.moveCursor(QTextCursor.StartOfLine)
+
+    @pyqtSlot(QProcess.ProcessState)
+    def _process_stateChanged(self, state):
+        """ procress_stateChanged """
+        # TODO handle procress_stateChanged
+        print("procress_stateChanged: %s" % state)
 
     def center(self):
         """Center Window on the Current Screen,with Multi-Monitor support."""
@@ -343,10 +491,17 @@ class MainWindow(QMainWindow):
         self.consolewidget.resize(QSize(200, 100))
 
     def view_source(self):
-        """Call methods to load and display page source code."""
-        access_manager = self.view.page().networkAccessManager()
-        reply = access_manager.get(QNetworkRequest(self.view.url()))
-        reply.finished.connect(self.slot_source_downloaded)
+        """ TODO: Call methods to load and display source code."""
+        # call(('xdg-open ' if sys.platform.startswith("linux") else 'open ')
+        #      + __file__, shell=True)
+        pass
+
+    def view_syncthing_source(self):
+        """Call methods to load and display web page source code."""
+        print("view_syncthing_source start")
+        # access_manager = self.view.page().networkAccessManager()
+        # reply = access_manager.get(QNetworkRequest(self.view.url()))
+        # reply.finished.connect(self.slot_source_downloaded)
 
     def slot_source_downloaded(self):
         """Show actual page source code."""
@@ -367,6 +522,16 @@ class MainWindow(QMainWindow):
     @pyqtSlot(bool)
     def finish_loading(self, finished):
         """Finished loading content."""
+        if not finished:
+            # TODO: When loading fail, what should we do?
+            print("load fail")
+            if self.process.state() == QProcess.NotRunning:
+                self.run()
+                self.view.reload()
+            # if self.process.state != QProcess.Running:
+            #    print("syncthing is not running: %s" % self.process.state())
+            # pass
+        print("finish_loading: %s" % finished)
         # TODO: WebEngineView does not have following function?
         # self.view.settings().clearMemoryCaches()
         # self.view.settings().clearIconDatabase()
@@ -435,6 +600,8 @@ class MainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No) == QMessageBox.Yes
         if the_conditional_is_true:
+            self.syncthing_stop()
+            self.ani_stop = True
             QApplication.instance().quit
             quit()
 
@@ -476,9 +643,8 @@ def main():
     app.setApplicationName(__doc__.strip().lower())
     app.setOrganizationName(__doc__.strip().lower())
     app.setOrganizationDomain(__doc__.strip())
-    # app.setWindowIcon(QIcon.fromTheme("text-x-python"))
     web = MainWindow()
-    app.aboutToQuit.connect(web.process.kill)
+    app.aboutToQuit.connect(web.syncthing_stop)
     try:
         opts, args = getopt(sys.argv[1:], 'hv', ('version', 'help'))
     except:
@@ -492,7 +658,7 @@ def main():
         elif opt in ('-v', '--version'):
             print(__version__)
             return sys.exit(1)
-    # web.show()  # comment out to hide/show main window, normally dont needed
+    # web.show()  # comment out to hide/show main window, normally don't needed
     sys.exit(app.exec_())
 
 
