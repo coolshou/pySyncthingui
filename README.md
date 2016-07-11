@@ -7,7 +7,7 @@ SyncthinGUI Python3 Qt5 GUI for Syncthing !
 - KISS, DRY, YAGNI, SingleFile, Async, CrossDesktop, CrossDistro, SelfUpdating !
 
 
-![screenshot](https://raw.githubusercontent.com/juancarlospaco/syncthingui/master/syncthingui.jpg)
+![screenshot](https://raw.githubusercontent.com/coolshou/syncthingui/master/syncthingui.jpg)
 
 
 
