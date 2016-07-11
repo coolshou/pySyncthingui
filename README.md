@@ -15,7 +15,13 @@ SyncthinGUI Python3 Qt5 GUI for Syncthing !
 
 - Install Syncthing:
 ```
-sudo add-apt-repository ppa:ytvwld/syncthing
+# Add the release PGP keys:
+curl -s https://syncthing.net/release-key.txt | sudo apt-key add -
+
+# Add the "release" channel to your APT sources:
+echo "deb http://apt.syncthing.net/ syncthing release" | sudo tee /etc/apt/sources.list.d/syncthing.list
+
+# Update and install syncthing:
 sudo apt-get update
 sudo apt-get install syncthing
 ```
@@ -23,6 +29,7 @@ sudo apt-get install syncthing
 - Install SyncthinGUI:
 ```
 sudo apt-get install python3-pyqt5  # OR  sudo yum install python3-qt5  OR  sudo pacman -S python-pyqt5
+sudo pip3 install psutil
 git clone https://github.com/coolshou/syncthingui.git
 cd syncthingui
 sudo chmod +x syncthingui
