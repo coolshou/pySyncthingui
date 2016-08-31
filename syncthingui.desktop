@@ -1,0 +1,11 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Name=syncthingui
+Comment=The GUI for syncthing written in PyQt
+Type=Application
+Exec=/usr/lib/syncthingui/syncthingui.py
+Icon=/usr/share/icons/syncthingui.png
+Terminal=false
+StartupNotify=true
+Categories=Network;
