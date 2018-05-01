@@ -38,7 +38,7 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
 import syncthingui_rc
 
 '''
-require: pyqt5 (5.6)
+require: pyqt5 (5.6), psutil
     pip3 install pyqt5
     cp  /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/* /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/
     cp -R /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/resources/ /usr/local/lib/python3.5/dist-packages/PyQt5/Qt/libexec/qtwebengine_locales/

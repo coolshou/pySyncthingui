@@ -14,6 +14,12 @@ SyncthinGUI Python3 Qt5 GUI for Syncthing !
 # Install permanently on the system:
 
 - Install Syncthing:
+
+Include in ubuntu 17.10 (artful) and above
+```
+sudo apt install syncthing syncthing-discosrv syncthing-relaysrv
+```
+Install from ppa
 ```
 # Add the release PGP keys:
 curl -s https://syncthing.net/release-key.txt | sudo apt-key add -
@@ -52,7 +58,7 @@ echo cfq | sudo tee /sys/block/sda/queue/scheduler
 
 - [Python 3.x](https://www.python.org "Python Homepage")
 - [PyQt 5.x](http://www.riverbankcomputing.co.uk/software/pyqt/download5 "PyQt5 Homepage")
-- [Syncthing](https://ind.ie/pulse "Syncthing Homepage") *(On Linux install it from PPA!)*
+- [Syncthing](https://syncthing.net/ "Syncthing Homepage")
 
 
 Donate, Charityware :
