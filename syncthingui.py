@@ -20,20 +20,29 @@ from urllib import request
 from webbrowser import open_new_tab
 
 # require python3-pyqt5
-from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize)
-from PyQt5.QtGui import QIcon, QPixmap, QTransform, QTextOption, QTextCursor
-from PyQt5.QtNetwork import QNetworkRequest
-# ubuntu require: python3-pyqt5.qtwebkit
-# WebKit1 based
-#from PyQt5.QtWebKitWidgets import QWebView as QWebEngineView
-# new in python3
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
+try:
+    from PyQt5.QtCore import (QProcess, Qt, QTextStream, QUrl, pyqtSlot, QSize)
+    from PyQt5.QtGui import QIcon, QPixmap, QTransform, QTextOption, QTextCursor
+    from PyQt5.QtNetwork import QNetworkRequest
+    from PyQt5.QtWidgets import (QApplication, QCheckBox, QInputDialog,
                              QMainWindow, QMenu, QMessageBox,
                              QPlainTextEdit, QTextEdit,
                              QVBoxLayout, QHBoxLayout,
                              QShortcut, QSystemTrayIcon, QProgressBar,
                              QSplitter, QWidget)
+except ImportError:
+    print("sudo apt install python3-pyqt5")
+    exit(-1)
+try:
+    # ubuntu require: python3-pyqt5.qtwebkit
+    # WebKit1 based (deprecate)
+    #from PyQt5.QtWebKitWidgets import QWebView as QWebEngineView
+    # new in python3
+    #QT 5.12
+    from PyQt5.QtWebEngineWidgets import QWebEngineView
+except ImportError:
+    print("sudo apt install python3-pyqt5.qtwebengine")
+    exit(-1)
 
 import syncthingui_rc
 
@@ -46,9 +55,9 @@ require: pyqt5 (5.6), psutil
 
 # metadata
 __package__ = "syncthingui"
-__version__ = ' 0.0.2 '
+__version__ = ' 0.0.3'
 __license__ = ' GPLv3+ LGPLv3+ '
-__author__ = 'coolshou '
+__author__ = 'coolshou'
 __author_org__ = ' juancarlos '
 __email__ = ' juancarlospaco@gmail.com '
 __url__ = 'https://github.com/coolshou/syncthingui#syncthingui'
@@ -191,7 +200,7 @@ class MainWindow(QMainWindow):
         self.progressbar = QProgressBar()
         self.statusBar().showMessage(getoutput(SYNCTHING + ' --version'))
         self.statusBar().addPermanentWidget(self.progressbar)
-        self.setWindowTitle(__doc__.strip().capitalize())
+        self.setWindowTitle("%s (%s)" % (__doc__.strip().capitalize(), __version__))
         self.setMinimumSize(900, 600)
         self.setMaximumSize(1280, 1024)
         self.resize(self.minimumSize())
