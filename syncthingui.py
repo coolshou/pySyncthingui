@@ -192,6 +192,7 @@ class MainWindow(QMainWindow):
         self.init_systray()
 
         self.run()
+        self.view.show()
 
     def init_gui(self):
         """init gui setup"""
@@ -236,7 +237,6 @@ class MainWindow(QMainWindow):
         # self.consoletextedit = QPlainTextEdit(parent=self.consolewidget)
         self.consoletoolbar = QWidget(self)
         hlayout = QHBoxLayout()
-        hlayout
         self.consoletoolbar.setLayout(hlayout)
         self.consoletextedit = QTextEdit(parent=self.consolewidget)
         self.consoletextedit.setWordWrapMode(QTextOption.NoWrap)
